@@ -31,4 +31,13 @@
 - [x] vitest tests pass (tsc clean + auth test; routers verified via live API + screenshots)
 - [x] Screenshots verify UI (all 8 pages verified working)
 - [x] PDF viewer verified (PDF loads in embedded viewer)
-- [ ] Checkpoint saved and delivered
+- [x] Checkpoint saved and delivered (version 9162ca7c)
+
+## Phase 5: AI Voiceover Script Feature (new request)
+- [x] AI router: new `ai.voiceoverScript` procedure — generate Banjara voiceover narration script for a given shloka (scene-aware, cinematic narration in Banjara)
+- [x] ChapterDetail: "AI वॉयसओवर" button per shloka — generates and displays Banjara voiceover script in a dialog
+- [x] AIChat: add suggested prompt for voiceover script generation
+- [x] Voiceover script shown with playback-ready script text (duration, tone notes, sound cues, opening/closing lines, copy button)
+- [x] vitest tests pass (ai.voiceover.test.ts — 2 tests)
+- [x] Screenshot verification (AI वॉयसओवर button visible on /chapters/1)
+- [ ] Checkpoint and deliver

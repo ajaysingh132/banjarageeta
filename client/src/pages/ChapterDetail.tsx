@@ -10,9 +10,25 @@ import {
   Clock,
   AlertCircle,
   Loader2,
+  Mic,
+  Volume2,
+  Copy,
+  X,
+  Clock3,
+  Lightbulb,
+  Music,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -47,6 +63,19 @@ const sceneStatusLabels: Record<string, string> = {
 export default function ChapterDetail({ id }: { id: number }) {
   const [, navigate] = useLocation();
   const [generateTarget, setGenerateTarget] = useState<number | null>(null);
+  const [voiceoverTarget, setVoiceoverTarget] = useState<number | null>(null);
+  const [voiceoverResult, setVoiceoverResult] = useState<{
+    shlokaVerse: string;
+    script: {
+      narrationBanjara: string | null;
+      narrationHindi: string | null;
+      openingLine: string | null;
+      closingLine: string | null;
+      estimatedDurationSeconds: number | null;
+      toneNotes: string | null;
+      soundCues: string | null;
+    } | null;
+  } | null>(null);
   const { data: chapter, isLoading: chapterLoading } = trpc.chapters.get.useQuery({ id });
   const { data: shlokas, isLoading: shlokasLoading } = trpc.shlokas.listWithScenes.useQuery({ chapterId: id });
   const utils = trpc.useUtils();
@@ -70,6 +99,34 @@ export default function ChapterDetail({ id }: { id: number }) {
     },
     onSettled: () => setGenerateTarget(null),
   });
+
+  const generateVoiceoverMutation = trpc.ai.voiceoverScript.useMutation({
+    onSuccess: (res) => {
+      setVoiceoverResult({ shlokaVerse: res.shlokaVerse, script: res.script });
+      // Keep dialog open after success so the user can read the generated script.
+      setVoiceoverActive(true);
+    },
+    onError: (err) => {
+      toast.error(err.message || "वॉयसओवर जनरेशन में त्रुटि");
+      setVoiceoverResult(null);
+      setVoiceoverActive(false);
+    },
+    onSettled: () => setVoiceoverTarget(null),
+  });
+
+  // Separate dialog-visibility state from the generation target, so the
+  // result dialog stays open after generation finishes.
+  const [voiceoverActive, setVoiceoverActive] = useState(false);
+
+  const copyToClipboard = async (text: string | null) => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("स्क्रिप्ट कॉपी हो गई");
+    } catch {
+      toast.error("कॉपी नहीं हो सकी");
+    }
+  };
 
   const pct =
     chapter && chapter.totalShlokas > 0 ? Math.round((chapter.completedShlokas / chapter.totalShlokas) * 100) : 0;
@@ -184,6 +241,24 @@ export default function ChapterDetail({ id }: { id: number }) {
                     )}
                     AI सीन
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-accent/50 text-accent hover:bg-accent/10 hover:text-accent text-xs"
+                    disabled={voiceoverTarget === shloka.id}
+                    onClick={() => {
+                      setVoiceoverTarget(shloka.id);
+                      setVoiceoverResult(null);
+                      setVoiceoverActive(true);
+                      generateVoiceoverMutation.mutate({ shlokaId: shloka.id });
+                    }}>
+                    {voiceoverTarget === shloka.id ? (
+                      <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                    ) : (
+                      <Mic className="w-3.5 h-3.5 mr-1" />
+                    )}
+                    AI वॉयसओवर
+                  </Button>
                 </div>
               </div>
 
@@ -246,6 +321,131 @@ export default function ChapterDetail({ id }: { id: number }) {
           </div>
         )}
       </div>
+
+      <Dialog open={voiceoverActive} onOpenChange={(open) => {
+        setVoiceoverActive(open);
+        if (!open) {
+          setVoiceoverTarget(null);
+          setVoiceoverResult(null);
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] bg-background border-gold/30">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-display">
+              <Volume2 className="w-5 h-5 text-gold" />
+              बंजारा वॉयसओवर स्क्रिप्ट
+              {voiceoverResult && (
+                <span className="text-xs text-muted-foreground font-normal">श्लोक {voiceoverResult.shlokaVerse}</span>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {voiceoverTarget !== null && generateVoiceoverMutation.isPending
+                ? "AI बंजारा भाषा में वॉयसओवर स्क्रिप्ट बना रहा है..."
+                : "3D एनिमेटेड सीन के लिए नैरेशन स्क्रिप्ट (बंजारा + हिंदी)"}
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            {!voiceoverResult && generateVoiceoverMutation.isPending && (
+              <div className="py-10 flex flex-col items-center gap-3 text-muted-foreground">
+                <Loader2 className="w-8 h-8 animate-spin text-gold" />
+                <p className="text-sm">AI वॉयसओवर स्क्रिप्ट तैयार कर रहा है, कृपया प्रतीक्षा करें...</p>
+              </div>
+            )}
+            {!voiceoverResult && !generateVoiceoverMutation.isPending && generateVoiceoverMutation.isError && (
+              <div className="py-8 text-center text-muted-foreground">
+                <AlertCircle className="w-8 h-8 mx-auto mb-2 text-destructive" />
+                <p className="text-sm">स्क्रिप्ट जनरेशन में त्रुटि हुई। कृपया दोबारा प्रयास करें।</p>
+              </div>
+            )}
+            {!voiceoverResult && !generateVoiceoverMutation.isPending && !generateVoiceoverMutation.isError && (
+              <div className="py-8 text-center text-muted-foreground">
+                <p className="text-sm">“AI वॉयसओवर” बटन दबाएँ ताकि AI बंजारा भाषा में नैरेशन स्क्रिप्ट बना सके।</p>
+              </div>
+            )}
+            {voiceoverResult && voiceoverResult.script && (
+              <div className="space-y-4 pr-2">
+                {voiceoverResult.script.openingLine && (
+                  <div className="bg-primary/5 border border-gold/20 rounded-lg p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-gold/70 mb-1">प्रारंभिक पंक्ति</p>
+                    <p className="text-sm text-foreground leading-relaxed italic">“{voiceoverResult.script.openingLine}”</p>
+                  </div>
+                )}
+                {voiceoverResult.script.narrationBanjara && (
+                  <div className="bg-gradient-gold/10 border border-gold/50 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-[10px] uppercase tracking-wider text-gold font-semibold">बंजारा नैरेशन</p>
+                      <Button
+                        size="icon" variant="ghost" className="h-6 w-6 text-gold hover:text-gold-bright hover:bg-gold/10"
+                        onClick={() => copyToClipboard(voiceoverResult.script?.narrationBanjara ?? null)}>
+                        <Copy className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                    <p className="text-base text-foreground leading-relaxed">{voiceoverResult.script.narrationBanjara}</p>
+                  </div>
+                )}
+                {voiceoverResult.script.closingLine && (
+                  <div className="bg-primary/5 border border-gold/20 rounded-lg p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-gold/70 mb-1">समापन पंक्ति</p>
+                    <p className="text-sm text-foreground leading-relaxed italic">“{voiceoverResult.script.closingLine}”</p>
+                  </div>
+                )}
+                {voiceoverResult.script.narrationHindi && (
+                  <div className="bg-background/40 border border-border/60 rounded-lg p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-gold/70 mb-1">हिंदी अर्थ (वॉयस आर्टिस्ट के लिए)</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{voiceoverResult.script.narrationHindi}</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {voiceoverResult.script.estimatedDurationSeconds && (
+                    <div className="bg-background/40 border border-border/60 rounded-lg p-3">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Clock3 className="w-3.5 h-3.5 text-gold" />
+                        <p className="text-[10px] uppercase tracking-wider text-gold/70">अवनुमानित अवधि</p>
+                      </div>
+                      <p className="text-sm font-semibold text-foreground">~{voiceoverResult.script.estimatedDurationSeconds} सेकंड</p>
+                    </div>
+                  )}
+                  {voiceoverResult.script.toneNotes && (
+                    <div className="bg-background/40 border border-border/60 rounded-lg p-3 sm:col-span-2">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Lightbulb className="w-3.5 h-3.5 text-gold" />
+                        <p className="text-[10px] uppercase tracking-wider text-gold/70">टोन नोट्स</p>
+                      </div>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{voiceoverResult.script.toneNotes}</p>
+                    </div>
+                  )}
+                  {voiceoverResult.script.soundCues && (
+                    <div className="bg-background/40 border border-border/60 rounded-lg p-3 sm:col-span-3">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Music className="w-3.5 h-3.5 text-gold" />
+                        <p className="text-[10px] uppercase tracking-wider text-gold/70">संगीत/ध्वनि संकेत</p>
+                      </div>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{voiceoverResult.script.soundCues}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </ScrollArea>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={generateVoiceoverMutation.isPending}
+              onClick={() => {
+                setVoiceoverResult(null);
+                generateVoiceoverMutation.mutate({ shlokaId: voiceoverTarget! });
+              }}>
+              {generateVoiceoverMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4 mr-1" />
+              )}
+              दोबारा जनरेट करें
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex items-center justify-between pt-2">
         {prevChapter ? (

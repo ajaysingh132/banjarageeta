@@ -371,6 +371,86 @@ Key character names in Banjara context: भगवान कृष्ण (Krishna
           return { success: false } as const;
         }
       }),
+
+    voiceoverScript: protectedProcedure
+      .input(z.object({
+        shlokaId: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const shloka = await db.getShloka(input.shlokaId);
+        if (!shloka) throw new TRPCError({ code: "NOT_FOUND", message: "श्लोक नहीं मिला" });
+
+        // Fetch chapter context and existing scene (if any) for a cinematic, scene-aware script
+        const chapter = await db.getChapter(shloka.chapterId);
+        const scene = await db.getSceneByShloka(input.shlokaId);
+
+        try {
+          const { invokeLLM } = await import("./_core/llm");
+
+          const prompt = `You are the voiceover script writer for a 3D animated Banjara Gita video book, produced like the Krishna TV serial. Each shloka gets one cinematic scene with a voiceover narration script in Banjara (Lambadi) language.
+
+Chapter ${chapter?.chapterNumber ?? "?"}: ${chapter?.titleBanjara ?? ""} (${chapter?.titleHindi ?? ""})
+Shloka: ${shloka.verseNumber} | Speaker: ${shloka.speaker ?? ""}
+
+Sanskrit verse: ${shloka.sanskrit ?? ""}
+Banjara translation: ${shloka.banjara ?? ""}
+Hindi meaning: ${shloka.hindi ?? ""}
+
+Existing scene details (if available): ${scene ? `Scene: ${scene.sceneDescription ?? ""}; Characters: ${scene.characters ?? ""}; Background: ${scene.background ?? ""}; Mood: ${scene.mood ?? ""}` : "No scene yet"}
+
+Generate a complete VOICEOVER NARRATION SCRIPT in Banjara language for this shloka's video scene. The script will be spoken by a narrator (voice artist) in the 3D animated film. Return ONLY a JSON object with these fields:
+
+- narrationBanjara: the main voiceover narration text in Banjara language (devanagari script), 3-6 sentences. It should poetically convey the shloka's meaning, sound natural when spoken aloud, and use the devotional Banjara style of Geetamruth.
+- narrationHindi: the same narration meaning explained in Hindi (for the voice artist's understanding), 2-4 sentences.
+- openingLine: a dramatic opening line the narrator speaks before the narration (in Banjara, e.g. addressing the listener).
+- closingLine: a reflective closing line after the narration (in Banjara).
+- estimatedDurationSeconds: estimated speaking duration in seconds (assume ~4 words/second for slow devotional pacing).
+- toneNotes: instructions for the voice artist about tone, pace, and emotion (e.g., धीरा, भक्तिपूर्ण, गंभीर - in Hindi).
+- soundCues: background music/sound cues suggestions (in Hindi), e.g. बांसुरी संगीत, युद्धभेरी, वायलिन।
+
+Respond with ONLY the JSON object.`;
+
+          const result = await invokeLLM({
+            messages: [{ role: "user", content: prompt }],
+            model: "gemini-2.5-flash",
+            response_format: { type: "json_object" },
+          });
+
+          const content = result.choices[0]?.message?.content ?? "";
+          const jsonStr = Array.isArray(content)
+            ? content.map((p) => (p.type === "text" ? p.text : "")).join("")
+            : content;
+
+          let scriptData: Record<string, unknown> = {};
+          try {
+            const match = jsonStr.match(/\{[\s\S]*\}/);
+            if (match) scriptData = JSON.parse(match[0]);
+          } catch {
+            scriptData = { narrationBanjara: jsonStr.slice(0, 1000) };
+          }
+
+          return {
+            success: true,
+            shlokaId: input.shlokaId,
+            shlokaVerse: shloka.verseNumber,
+            script: {
+              narrationBanjara: (scriptData.narrationBanjara as string) ?? null,
+              narrationHindi: (scriptData.narrationHindi as string) ?? null,
+              openingLine: (scriptData.openingLine as string) ?? null,
+              closingLine: (scriptData.closingLine as string) ?? null,
+              estimatedDurationSeconds: (scriptData.estimatedDurationSeconds as number) ?? null,
+              toneNotes: (scriptData.toneNotes as string) ?? null,
+              soundCues: (scriptData.soundCues as string) ?? null,
+            },
+          };
+        } catch (err) {
+          console.error("[AI Voiceover] Error:", err);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "वॉयसओवर स्क्रिप्ट जनरेशन में त्रुटि। कृपया दोबारा प्रयास करें।",
+          });
+        }
+      }),
   }),
 
   progress: router({
