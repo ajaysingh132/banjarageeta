@@ -100,6 +100,16 @@ export default function Home() {
               भगवद गीता के 700 श्लोकों का बंजारा (लम्बाडी) काव्यात्मक अनुवाद। प्रत्येक श्लोक के लिए एक
               सिनेमैटिक 3D सीन — कृष्ण सीरियल की तरह।
             </p>
+            {/* Official book cover */}
+            <div className="pt-8 flex justify-center">
+              <img
+                src="/manus-storage/banjara-gita-book-cover_486b54bd.jpg"
+                alt="बंजारा गीतामृत — प्रथम पुस्तक, लेखक कृष्णा चव्हाण, प्रकाशन GBSBFORYOU, Bhopal"
+                className="rounded-xl border border-gold/40 shadow-gold-lg max-h-[420px] object-contain hover:scale-[1.02] transition-transform duration-500" />
+            </div>
+            <p className="text-xs text-gold/60">
+              अपणी गोर बोली – अपणी पहचान | प्रथम पुस्तक — लेखक कृष्णा चव्हाण, प्रकाशन GBSBFORYOU, Bhopal
+            </p>
             <div className="flex items-center justify-center gap-4 pt-4">
               <Link
                 href={isAuthenticated ? "/dashboard" : getLoginUrl()}
@@ -138,8 +148,8 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-border px-4 lg:px-8 py-8 text-center">
-        <p className="text-sm text-muted-foreground">
-          बंजारा गीतामृत — भगवद गीता का बंजारा अनुवाद | वीडियो पुस्तक निर्माण प्लेटफॉर्म
+              <p className="text-sm text-muted-foreground">
+          बंजारा गीतामृत — भगवद गीता का बंजारा अनुवाद | लेखक: कृष्णा चव्हाण | प्रकाशन: GBSBFORYOU, Bhopal, Madhya Pradesh
         </p>
       </footer>
     </div>

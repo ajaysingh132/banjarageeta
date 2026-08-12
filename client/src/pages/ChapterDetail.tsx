@@ -181,6 +181,16 @@ export default function ChapterDetail({ id }: { id: number }) {
             <p className="text-sm text-muted-foreground mt-4 leading-relaxed">{chapter.descriptionBanjara}</p>
           )}
         </div>
+
+        {/* प्रथम श्लोक — आधिकारिक कलाकृति (बंजारा गीतामृत पुस्तक से) */}
+        {chapter.chapterNumber === 1 && (
+          <div className="bg-gradient-card border border-gold/30 rounded-xl overflow-hidden">
+            <img
+              src="/manus-storage/banjara-gita-shloka-page_9ce91dc0.jpg"
+              alt="बंजारा गीतामृत — प्रथम श्लोक कलाकृति"
+              className="w-full object-contain" />
+          </div>
+        )}
       </div>
 
       <div className="space-y-3">

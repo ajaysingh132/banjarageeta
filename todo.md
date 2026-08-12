@@ -40,4 +40,4 @@
 - [x] Voiceover script shown with playback-ready script text (duration, tone notes, sound cues, opening/closing lines, copy button)
 - [x] vitest tests pass (ai.voiceover.test.ts — 2 tests)
 - [x] Screenshot verification (AI वॉयसओवर button visible on /chapters/1)
-- [ ] Checkpoint and deliver
+- [x] Checkpoint and deliver (version f2e0cbda)

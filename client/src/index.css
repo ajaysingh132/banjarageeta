@@ -95,6 +95,9 @@
   .shadow-gold {
     box-shadow: 0 0 30px oklch(0.72 0.16 65 / 0.15), 0 4px 20px oklch(0 0 0 / 0.3);
   }
+  .shadow-gold-lg {
+    box-shadow: 0 0 50px oklch(0.72 0.16 65 / 0.25), 0 10px 40px oklch(0 0 0 / 0.4);
+  }
   .text-shadow-gold {
     text-shadow: 0 0 20px oklch(0.72 0.16 65 / 0.4);
   }
