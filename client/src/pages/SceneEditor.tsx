@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { getQueryKey } from "@trpc/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 type SceneForm = {
@@ -69,6 +71,7 @@ function SceneFormInner({
   navigate: (to: string) => void;
 }) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data: existingScene, isLoading: sceneLoading } = !isNew
     ? trpc.scenes.getByShloka.useQuery({ shlokaId })
@@ -141,6 +144,18 @@ function SceneFormInner({
       navigate(`/chapters/${params.get("chapterId") ?? ""}`);
     },
     onError: (err: { message?: string }) => toast.error(err.message || "हटाने में विफल"),
+  });
+
+  const generateImageMutation = trpc.scenes.generateSceneImage.useMutation({
+    onSuccess: (res) => {
+      if (res.scene) {
+        void queryClient.invalidateQueries({ queryKey: getQueryKey(trpc.scenes.getByShloka, { shlokaId }, "query") });
+        toast.success("3D सीन छवि तैयार हो गई!");
+      } else {
+        toast.error("छवि जनरेशन विफल");
+      }
+    },
+    onError: (err: { message?: string }) => toast.error(err.message || "छवि जनरेशन में त्रुटि"),
   });
 
   const generateMutation = trpc.scenes.generateScene.useMutation({
@@ -231,17 +246,41 @@ function SceneFormInner({
                 सीन सम्पादक
               </h1>
               {isAdmin && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-primary/40 text-primary hover:bg-primary/10"
-                  disabled={generateMutation.isPending || isNew}
-                  onClick={() => generateMutation.mutate({ shlokaId })}>
-                  {generateMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />}
-                  AI सीन जनरेट
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-primary/40 text-primary hover:bg-primary/10"
+                    disabled={generateMutation.isPending || isNew}
+                    onClick={() => generateMutation.mutate({ shlokaId })}>
+                    {generateMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                    AI सीन जनरेट
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-gold/50 text-gold hover:bg-gold/10"
+                    disabled={generateImageMutation.isPending || isNew}
+                    onClick={() => generateImageMutation.mutate({ shlokaId })}>
+                    {generateImageMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                    3D छवि जनरेट
+                  </Button>
+                </div>
               )}
             </div>
+
+            {existingScene?.imageUrl ? (
+              <div className="overflow-hidden rounded-lg border border-gold/30 mb-4">
+                <div className="relative">
+                  <img src={existingScene.imageUrl} alt={`सीन - श्लोक ${shlokaId}`} className="w-full h-auto max-h-[420px] object-cover" />
+                  <span className="absolute bottom-2 left-2 bg-black/70 text-gold text-xs px-2 py-1 rounded">3D सीन छवि</span>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-gold/30 p-6 mb-4 text-center text-sm text-muted-foreground">
+                {isAdmin ? "उपर ‘3D छवि जनरेट’ पर क्लिक करके इस श्लोक की AI 3D सीन छवि बनाएं" : "अभी तक कोई 3D सीन छवि नहीं है"}
+              </div>
+            )}
 
             <div className="space-y-4">
               <div className="space-y-1.5">

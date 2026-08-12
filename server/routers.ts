@@ -8,6 +8,7 @@ import * as db from "./db";
 
 const sceneInput = z.object({
   shlokaId: z.number(),
+  imageUrl: z.string().optional(),
   sceneDescription: z.string().optional(),
   characters: z.string().optional(),
   background: z.string().optional(),
@@ -145,6 +146,20 @@ export const appRouter = router({
       .input(z.object({ shlokaId: z.number() }))
       .query(({ input }) => db.getSceneByShloka(input.shlokaId)),
 
+    /** Map of chapterId → imageUrl of the shloka's scene (for StoryBoard thumbnails). */
+    coverImages: publicProcedure.query(async () => {
+      const rows = await db.listScenesWithImages();
+      const map: Record<number, string> = {};
+      for (const row of rows) {
+        if (map[row.shlokaId]) continue; // one image per shloka lookup
+        const shloka = await db.getShloka(row.shlokaId);
+        if (shloka && row.imageUrl && !map[shloka.chapterId] && !(shloka.chapterId in map)) {
+          map[shloka.chapterId] = row.imageUrl;
+        }
+      }
+      return map;
+    }),
+
     create: adminProcedure.input(sceneInput).mutation(async ({ input }) => {
       const id = await db.createScene(input);
       const shloka = await db.getShloka(input.shlokaId);
@@ -276,6 +291,61 @@ Respond with ONLY the JSON object.`;
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: "AI जनरेशन में त्रुटि। कृपया दोबारा प्रयास करें।",
+          });
+        }
+      }),
+
+    /**
+     * Generate a 3D cinematic scene image for a shloka's scene (Krishna-serial style).
+     */
+    generateSceneImage: protectedProcedure
+      .input(z.object({ shlokaId: z.number() }))
+      .mutation(async ({ input }) => {
+        const scene = await db.getSceneByShloka(input.shlokaId);
+        const shloka = await db.getShloka(input.shlokaId);
+        if (!shloka) throw new TRPCError({ code: "NOT_FOUND", message: "श्लोक नहीं मिला" });
+        if (!scene) throw new TRPCError({ code: "NOT_FOUND", message: "पहले सीन जनरेट करें, फिर छवि जनरेट करें" });
+
+        try {
+          const { generateImage } = await import("./_core/imageGeneration");
+          const { storagePut } = await import("./storage");
+
+          const prompt = `3D animated cinematic film still, Indian devotional TV serial style (Krishna serial aesthetic), for the Bhagavad Gita video book.
+
+Scene: ${scene.sceneDescription ?? "Kurukshetra war battlefield"}
+Characters: ${scene.characters ?? "Lord Krishna, Arjuna"}
+Background: ${scene.background ?? "Kurukshetra battlefield"}
+Mood: ${scene.mood ?? "epic, devotional"}
+Lighting: ${scene.lighting ?? "divine golden light"}
+
+Style requirements: high-quality 3D animation render, cinematic composition, ${scene.cameraAngle ?? "wide cinematic shot"}, rich colors, dramatic yet devotional atmosphere, epic scale, detailed character costumes and ornaments. No text, no watermarks.`;
+
+          const { url } = await generateImage({ prompt });
+          if (!url) throw new Error("Image generation returned no URL");
+
+          // Store the image via the project storage for a stable CDN URL
+          const resp = await fetch(url);
+          if (!resp.ok) throw new Error(`Failed to fetch generated image: ${resp.status}`);
+          const buffer = Buffer.from(await resp.arrayBuffer());
+          const contentType = resp.headers.get("content-type") ?? "image/png";
+          const relKey = `ch${shloka.chapterId}/shloka${shloka.shlokaNumber}/scene.png`;
+          const { url: storedUrl } = await storagePut(relKey, buffer, contentType);
+
+          await db.updateScene(scene.id, {
+            imageUrl: storedUrl,
+            status: scene.status === "not-started" ? "draft" : scene.status,
+            aiGenerated: 1,
+          });
+          await db.updateShloka(input.shlokaId, { hasScene: 1, sceneStatus: "in-progress" });
+          await db.updateChapterShlokaCounts(shloka.chapterId);
+
+          const updatedScene = await db.getSceneByShloka(input.shlokaId);
+          return { success: true, scene: updatedScene ?? null };
+        } catch (err) {
+          console.error("[AI Scene Image Generation] Error:", err);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "3D सीन छवि जनरेशन में त्रुटि। कृपया दोबारा प्रयास करें।",
           });
         }
       }),

@@ -312,7 +312,11 @@ export default function ChapterDetail({ id }: { id: number }) {
                         </SelectContent>
                       </Select>
                     </div>
-                    <p className="text-xs text-muted-foreground line-clamp-2">{scene.sceneDescription}</p>
+                    {scene.imageUrl ? (
+                      <img src={scene.imageUrl} alt={`3D सीन — श्लोक ${shloka.shlokaNumber}`} className="w-full h-auto rounded-md border border-gold/20 mb-2" />
+                    ) : (
+                      <p className="text-xs text-muted-foreground line-clamp-2">{scene.sceneDescription}</p>
+                    )}
                   </div>
                 </div>
               )}

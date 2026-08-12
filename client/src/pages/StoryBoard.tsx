@@ -12,6 +12,7 @@ const statusConfig: Record<string, { icon: typeof CheckCircle2; label: string; c
 
 export default function StoryBoard() {
   const { data: chapters, isLoading } = trpc.chapters.list.useQuery();
+  const { data: sceneImages } = trpc.scenes.coverImages.useQuery();
   const sorted = chapters?.sort((a, b) => a.chapterNumber - b.chapterNumber) ?? [];
 
   if (isLoading) {
@@ -47,11 +48,15 @@ export default function StoryBoard() {
                 "group relative bg-gradient-card border border-border rounded-xl overflow-hidden hover:border-gold/40 transition-all duration-300 animate-fade-in-up animate-stagger-",
                 Math.min(i + 1, 6)
               )}>
-              {/* Card header with number */}
+              {/* Card header with number (or scene thumbnail) */}
               <div className="relative h-28 bg-gradient-to-br from-primary/20 via-background to-primary/10 flex items-center justify-center overflow-hidden">
-                <span className="text-5xl font-display font-bold text-gold/20 group-hover:text-gold/35 transition-colors">
-                  {String(chapter.chapterNumber).padStart(2, "0")}
-                </span>
+                {sceneImages?.[chapter.id] ? (
+                  <img src={sceneImages[chapter.id]} alt={chapter.titleBanjara} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                ) : (
+                  <span className="text-5xl font-display font-bold text-gold/20 group-hover:text-gold/35 transition-colors">
+                    {String(chapter.chapterNumber).padStart(2, "0")}
+                  </span>
+                )}
                 <div className="absolute top-3 right-3">
                   <span className={cn("text-[10px] px-2 py-0.5 rounded-full border flex items-center gap-1", cfg.badge)}>
                     <StatusIcon className={cn("w-3 h-3", cfg.color)} />

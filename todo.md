@@ -41,3 +41,12 @@
 - [x] vitest tests pass (ai.voiceover.test.ts — 2 tests)
 - [x] Screenshot verification (AI वॉयसओवर button visible on /chapters/1)
 - [x] Checkpoint and deliver (version f2e0cbda)
+
+## Phase 6: 3D Scene Images for Chapter 1 (new request)
+- [x] Review Chapter 1 shlokas in DB (count + content) — 3 shlokas present
+- [x] Ensure scenes exist for all Chapter 1 shlokas (seeding/updates via DB, imageUrl + aiGenerated=1)
+- [x] Generate 3D cinematic scene image for each Chapter 1 shloka via AI image generation (Krishna-serial style, 16:9)
+- [x] Upload images to webdev static storage and store URLs in scenes table
+- [x] Verify images render in StoryBoard and ChapterDetail pages (all 3 images confirmed on /chapters/1)
+- [x] SceneEditor: "3D छवि जनरेट" button + image display panel
+- [x] Checkpoint and deliver

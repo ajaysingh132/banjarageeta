@@ -80,6 +80,7 @@ export const scenes = mysqlTable("scenes", {
   durationSeconds: double("durationSeconds").default(30),
   status: mysqlEnum("status", ["not-started", "draft", "in-progress", "complete"]).default("not-started").notNull(),
   aiGenerated: int("aiGenerated").default(0).notNull(),
+  imageUrl: text("imageUrl"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

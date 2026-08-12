@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   AIChatMessage,
@@ -206,6 +206,13 @@ export async function getSceneByShloka(shlokaId: number): Promise<Scene | undefi
   if (!db) throw new Error("Database not available");
   const rows = await db.select().from(scenes).where(eq(scenes.shlokaId, shlokaId)).limit(1);
   return rows[0];
+}
+
+export async function listScenesWithImages(): Promise<{ shlokaId: number; imageUrl: string | null }[]> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const rows = await db.select({ shlokaId: scenes.shlokaId, imageUrl: scenes.imageUrl }).from(scenes).where(sql`imageUrl IS NOT NULL`).orderBy(asc(scenes.shlokaId));
+  return rows.filter((r) => r.imageUrl !== null);
 }
 
 export async function createScene(data: InsertScene) {
